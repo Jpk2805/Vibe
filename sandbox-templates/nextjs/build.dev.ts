@@ -11,6 +11,9 @@ if (!process.env.E2B_API_KEY) {
 import { Template, defaultBuildLogger } from 'e2b'
 import { template } from './template'
 
+/**
+ * Builds the Next.js sandbox template with the alias "vibe-nextjs-v12" using the default build logger.
+ */
 async function main() {
   await Template.build(template, {
     alias: 'vibe-nextjs-v12',
