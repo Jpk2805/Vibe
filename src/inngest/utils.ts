@@ -1,4 +1,5 @@
 import Sandbox from "@e2b/code-interpreter";
+import { AgentResult, TextMessage } from "@inngest/agent-kit";
 
 /**
  * Connects to the sandbox identified by `sandboxId` and returns the connected instance.
@@ -28,32 +29,30 @@ export async function runNextjsDevServer(
   options?: {
     cwd?: string;
     port?: number;
-    timeoutMs?: number;
   }
 ) {
   const cwd = options?.cwd ?? "/home/user";
   const port = options?.port ?? 3000;
-  const timeoutMs = options?.timeoutMs ?? 60_000;
 
-
-  await sandbox.commands.run("npm run dev", {
+  // Start dev server in background
+  sandbox.commands.run("npm run dev", {
     cwd,
     background: true,
   });
 
-  const start = Date.now();
-  while (true) {
-    try {
-      await sandbox.commands.run(
-        `curl -sSf http://localhost:${port} > /dev/null`
-      );
-      break; // success
-    } catch {
-      if (Date.now() - start > timeoutMs) {
-        throw new Error("Next.js server did not start in time");
-      }
-      await new Promise((r) => setTimeout(r, 1000));
-    }
-  }
+  // Return immediately
   return sandbox.getHost(port);
+}
+
+
+export async function lastMessage(result: AgentResult) {
+  const lastMessage = result.output.findLastIndex(
+    (item) => item.role === "assistant",
+  );
+  const message = result.output[lastMessage] as | TextMessage | undefined;
+  return message?.content 
+    ? typeof message.content === "string" 
+      ? message.content 
+      : message.content.map ((c)=>c.text).join("") 
+    : undefined;
 }
