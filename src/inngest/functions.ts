@@ -2,7 +2,8 @@ import {
   createAgent,
   openai,
   createTool,
-  createNetwork
+  createNetwork,
+  Tool
 } from "@inngest/agent-kit";
 
 import { Sandbox } from "@e2b/code-interpreter";
@@ -11,10 +12,16 @@ import { getSandbox, lastMessage, runNextjsDevServer } from "./utils";
 import { stdout } from "node:process";
 import { z } from "zod";
 import { PROMPT } from "@/prompt";
+import prisma from "@/lib/db";
 
-export const helloWorld = inngest.createFunction(
-  { id: "hello-world" },
-  { event: "test/hello.world" },
+interface AgentState {
+  summary: string;
+  files: { [path: string]: string };
+}
+
+export const codeAgentFunction = inngest.createFunction(
+  { id: "code-agent" },
+  { event: "code-agent/run" },
   async ({ event, step }) => {
 
     const sandboxId = await step.run("create sandbox", async () => {
@@ -22,13 +29,13 @@ export const helloWorld = inngest.createFunction(
       return sandbox.sandboxId;
     });
 
-    const codeAgent = createAgent({
+    const codeAgent = createAgent<AgentState>({
       name: "Code Agent",
       description: "An expert coding agent",
       system: PROMPT,
       model: openai({
         model: "gpt-4.1-mini",
-        defaultParameters: { temperature: 0.1 },
+        defaultParameters: { temperature: 0.2 },
       }),
       tools: [
         createTool({
@@ -60,9 +67,9 @@ export const helloWorld = inngest.createFunction(
 
               } catch (error) {
                 console.error(`Command failed: ${error} \nstdout: ${buffers.stdout}\nstderr: ${buffers.stderr}`);
-                return `Command failed: ${error} \nstdout: ${buffers.stdout}\nstderr: ${buffers.stderr}`
+                throw new Error(`Command failed: ${error} \nstdout: ${buffers.stdout}\nstderr: ${buffers.stderr}`);
               }
-            });          
+            });
           },
         }),
         createTool({
@@ -78,11 +85,10 @@ export const helloWorld = inngest.createFunction(
 
 
           }),
-          handler: async ({ files }, {step, network}) => {
+          handler: async ({ files }, {step, network}: Tool.Options<AgentState>) => {
             const newFiles = await step?.run("createorUpdateFile", async () => {
               try {
-                const updatedFiles =
-                  (network.state.data.files as Record<string, string>) ?? {};
+                const updatedFiles =network.state.data.files || {};
                 const sandbox = await getSandbox(sandboxId);
                 for (const file of files) {
                   const resolvedPath = file.path.startsWith("/")
@@ -97,7 +103,7 @@ export const helloWorld = inngest.createFunction(
                 return updatedFiles;
               } catch (error) {
                 console.error(`File creation/update failed: ${error}`);
-                return `File creation/update failed: ${error}`;
+                throw new Error(`File creation/update failed: ${error}`);
               }
             });
             if (typeof newFiles === "object") {
@@ -121,10 +127,10 @@ export const helloWorld = inngest.createFunction(
                   const content = await sandbox.files.read(file);
                   contents.push({path: file, content});
                 }
-                return  JSON.stringify(contents);
+                return contents;
 
               } catch (error) {
-                return `Error reading files: ${error}`
+                throw new Error(`Error reading files: ${error}`);
               }
             });
           }
@@ -144,7 +150,7 @@ export const helloWorld = inngest.createFunction(
       }
     });
 
-    const network = createNetwork({
+    const network = createNetwork<AgentState>({
       name: "coding-agent-network",
       agents: [codeAgent],
       maxIter: 15,
@@ -159,6 +165,25 @@ export const helloWorld = inngest.createFunction(
 
     const result = await network.run (event.data.value);
 
+    const isError = 
+    !result.state.data.summary ||
+    Object.keys(result.state.data.files || {}).length === 0;
+
+    if (isError){
+      
+    }
+    await step.run("save-result", async () => {
+      if(isError){
+        return await prisma.message.create({
+          data: {
+            content: "The code agent failed to complete the task.",
+            role: "ASSISTANT",
+            type: "ERROR",
+          }
+        });
+      }
+    });
+
     const sandbox = await getSandbox(sandboxId);
 
     // await step.run("write generated page", async () => {
@@ -172,6 +197,24 @@ export const helloWorld = inngest.createFunction(
       return await runNextjsDevServer(sandbox, {
         cwd: "/home/user",
         port: 3000,
+      });
+    });
+
+    await step.run("save-results", async () => {
+      await prisma.message.create({
+        data: {
+          content: result.state.data.summary,
+          role: "ASSISTANT",
+          type: "RESULT",
+          fragment: {
+            create: {
+              sandboxUrl: sandboxUrl,
+              title: "Fragment",
+              files: result.state.data.files,
+            }
+            
+          }
+        },
       });
     });
 
