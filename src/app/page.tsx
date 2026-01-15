@@ -4,33 +4,38 @@ import { useTRPC } from "@/trpc/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useState } from "react"
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { useRouter } from "next/router"
+import { Variable } from "lucide-react"
 
 
 const Page =  () => {
+  const router = useRouter();
   const [value, setValue] = useState("")
   
-  const trpc = useTRPC()
-
-  const messages = useQuery(trpc.messages.getmany.queryOptions())
-  const createMessage = useMutation(trpc.messages.create.mutationOptions({
-    onSuccess: () =>{
-      toast.success("Message created!")
-    }
+  const trpc = useTRPC()  
+  const createProject = useMutation(trpc.projects.create.mutationOptions({
+    onError: (error) => {
+      toast.error(`Error creating project: ${error.message}`)
+    },
+    onSuccess: (data,variables, context ) => {
+      router.push(`/projects/${data.id}`)
+    } 
   }))
 
   
   
   return ( 
-    <div>
+    <div className="h-screen w-screen flex items-center justify-center ">
+      <div className="max-w-7xl mx-auto flex items-center flex-col gap-y-4 justify-center">
 
-      <Input value={value} onChange={(e)=>setValue(e.target.value)} />
-      <Button disabled={createMessage.isPending} onClick={() => createMessage.mutate({content: value})}>
-        Create Message
-      </Button>
+        <Input value={value} onChange={(e)=>setValue(e.target.value)} />
+        <Button disabled={createProject.isPending} onClick={() => createProject.mutate({content: value})}>
+          Submit
+        </Button>
+      </div>
       
-      {JSON.stringify(messages.data, null ,2 )}
 
     </div>
   )
