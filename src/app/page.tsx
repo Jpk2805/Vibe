@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input"
 import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { useRouter } from "next/router"
-import { Variable } from "lucide-react"
+import { useRouter } from "next/navigation"
+
 
 
 const Page =  () => {
@@ -19,11 +19,10 @@ const Page =  () => {
     onError: (error) => {
       toast.error(`Error creating project: ${error.message}`)
     },
-    onSuccess: (data,variables, context ) => {
+    onSuccess: (data) => {
       router.push(`/projects/${data.id}`)
     } 
   }))
-
   
   
   return ( 
