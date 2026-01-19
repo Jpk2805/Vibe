@@ -3,38 +3,55 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import { MessageCard } from "./message-card"
 import { MessageForm } from "./message-form"
 import { useEffect, useRef } from "react"
+import { Fragment } from "@/generated/prisma/client"
+import { MessageLoading } from "./message-loading"
 
 interface Props {
-    projectID: string
+    projectID: string;
+    activeFragment: Fragment | null;
+    setActiveFragment: (fragment: Fragment | null) => void;
+
 }
 
 
-export const MessagesContianer = ({projectID}: Props)=>{
+export const MessagesContianer = ({
+        projectID,
+        activeFragment,
+        setActiveFragment,
+    
+    }: Props)=>{
     const bottomRef = useRef<HTMLDivElement>(null)
     const trpc = useTRPC()
     const { data: messages } = useSuspenseQuery(trpc.messages.getmany.queryOptions({
         projectID,
-    }))
+    },
+    {
+        //TODO temp solution (not effective to fetch after each 5 secs)
+        refetchInterval:5000,
+    }
+    ))
+    // TODO : implement fragment selection 
+    // useEffect(()=>{
+    //     const lastAssistantMessageWithFragment = messages.findLast(
+    //         (message)=>{message.role === "ASSISTANT" && !!message.fragment}
 
-    useEffect(()=>{
-        const lastAssistantMessage = messages.findLast(
-            (message)=>{message.role === "ASSISTANT"}
+    //     )
 
-        )
-
-        if (lastAssistantMessage){
-            //TODO set active fragment
-        }
-    },[messages])
+    //     if (lastAssistantMessageWithFragment ){
+    //         setActiveFragment(lastAssistantMessageWithFragment.fragment)
+    //     }
+    // },[messages, setActiveFragment])
 
     useEffect(()=>{
         bottomRef.current?.scrollIntoView()
     },[messages.length])
 
+    const lastMessage = messages[messages.length-1]
+    const isLastMessageUser = lastMessage?.role === "USER"
     return (
         <div className="flex flex-col flex-1 min-h-0">
             <div className="flex-1 min-h-0 overflow-y-auto">
-                <div className="pt-1 pr-1">
+                <div className="pt-2 pr-1">
                     {messages.map ((message)=>(
                         <MessageCard 
                             key={message.id} 
@@ -42,13 +59,14 @@ export const MessagesContianer = ({projectID}: Props)=>{
                             role = {message.role} 
                             fragment= {message.fragment}
                             createdAt = {message.createdAt}
-                            isActiveFragment= {false}
-                            onFragmentClick={()=>{}}
+                            isActiveFragment= {activeFragment?.id === message.fragment?.id}
+                            onFragmentClick={()=>{ setActiveFragment(message.fragment)}}
                             type = {message.type}
                         />
                         
                         ))
                     }
+                    {isLastMessageUser && <MessageLoading/>}
                     <div ref={bottomRef} />
                 </div>
 
