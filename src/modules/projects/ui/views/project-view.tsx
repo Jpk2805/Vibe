@@ -4,6 +4,7 @@ import { ResizableHandle,ResizablePanel,ResizablePanelGroup } from '@/components
 import { MessagesContianer } from '../components/messages-container'
 import { Fragment } from '@/generated/prisma/client'
 import { ProjectHeader } from '../components/project-header'
+import { FragmentWeb } from '../components/fragment-web'
 
 interface Props {
     projectID: string
@@ -33,7 +34,7 @@ export const ProjectView = ({projectID} : Props) => {
             </ResizablePanel>
             <ResizableHandle withHandle />
             <ResizablePanel defaultSize={65} minSize={50} className=''>
-                TODO: Priview
+                {!!activeFragment&& <FragmentWeb data= {activeFragment}/>}
             </ResizablePanel>
         </ResizablePanelGroup>
     </div>

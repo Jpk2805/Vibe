@@ -20,8 +20,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-
-
 interface Props {
     projectID: string;
 }
@@ -40,8 +38,7 @@ export const ProjectHeader = ({projectID}: Props)=>{
                         variant="ghost"
                         size= "sm"
                         className="focus-visible:ring-0 hove:bg-transparent hover:opacity-75
-                        transition-opacity pl-2!"
-                    >
+                        transition-opacity pl-2!">
                         <Image src= "/logo.svg" alt= "Vibe" width = {18} height={18}>
                         </Image>
                         <span className="text-sm font-medium">{project.name}</span>
@@ -50,12 +47,9 @@ export const ProjectHeader = ({projectID}: Props)=>{
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side="bottom" align="start">
                     <DropdownMenuItem asChild>
-                        <Link
-                            href="/"
-                        >
+                        <Link href="/">
                             <ChevronLeftIcon/>
                             <span>Go to DashBoard</span>
-
                         </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator/>
@@ -82,11 +76,8 @@ export const ProjectHeader = ({projectID}: Props)=>{
                             </DropdownMenuPortal>
                         </DropdownMenuSubTrigger>
                     </DropdownMenuSub>
-
                 </DropdownMenuContent>
             </DropdownMenu>
         </header>
     )
 }
-
-
