@@ -98,30 +98,29 @@ export const MessageForm = ({projectID} : Props) => {
                     )}
                 />
                 <div className="flex gap-x-2 items-end justify-between pt-2">
-                    <div className="text-[10px] text-muted-foreground font-mono" >
-                        <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                            <span>
-                                &#8984;
-                            </span>
-                            Enter
-                        </kbd>
-                        &nbsp; To Submit
+                        <div className="text-[10px] text-muted-foreground font-mono" >
+                            <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                                <span>
+                                    &#8984;
+                                </span>
+                                Enter
+                            </kbd>
+                            &nbsp; To Submit&nbsp;
+                        </div>
 
-                        <Button 
-                            disabled= {isButtonDisable}
-                        className={cn(
+                        <Button
+                            disabled={isButtonDisable}
+                            className={cn(
                             "size-8 rounded-full",
                             isButtonDisable && "bg-muted-foreground border"
-                            )}>
-                                {
-                                    isPending ? (<Loader2Icon className="size-4 animate-spin"/>) : (
-
-                                        <ArrowUpIcon/>
-                                    )
-
-                                }
+                            )}
+                        >
+                            {isPending ? (
+                            <Loader2Icon className="size-4 animate-spin" />
+                            ) : (
+                            <ArrowUpIcon className="size-4" />
+                            )}
                         </Button>
-                    </div>
                 </div>
             </form>
         </Form>
