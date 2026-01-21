@@ -61,7 +61,7 @@ export const ProjectHeader = ({projectID}: Props)=>{
                         <DropdownMenuSubTrigger>
                             <DropdownMenuPortal>
                                 <DropdownMenuSubContent>
-                                    <DropdownMenuRadioGroup value={theme} onValueChange={useTheme}>
+                                    <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
                                         <DropdownMenuRadioItem value="light">
                                             <span>Light</span>
                                         </DropdownMenuRadioItem>

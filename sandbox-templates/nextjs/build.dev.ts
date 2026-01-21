@@ -16,7 +16,7 @@ import { template } from './template'
  */
 async function main() {
   await Template.build(template, {
-    alias: 'vibe-nextjs-v12',
+    alias: 'vibe-nextjs-v13',
     onBuildLogs: defaultBuildLogger(),
   });
 }
