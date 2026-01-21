@@ -67,7 +67,7 @@ export const ProjectView = ({projectID} : Props) => {
                     </TabsList>
 
                     <div className="ml-auto">
-                        <Button asChild size="sm">
+                        <Button asChild size="sm" variant={"tertiary"}>
                         <Link href="/pricing">
                             <CrownIcon className="size-4 mr-1" />
                             Upgrade
