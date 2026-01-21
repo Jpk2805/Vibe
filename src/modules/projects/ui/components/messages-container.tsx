@@ -22,6 +22,8 @@ export const MessagesContianer = ({
     }: Props)=>{
     const bottomRef = useRef<HTMLDivElement>(null)
     const trpc = useTRPC()
+    const lastAssistantMessageIDRef = useRef<string|null> (null)
+
     const { data: messages } = useSuspenseQuery(trpc.messages.getmany.queryOptions({
         projectID,
     },
@@ -32,13 +34,15 @@ export const MessagesContianer = ({
     ))
     // TODO : implement fragment selection 
     useEffect(()=>{
-        const lastAssistantMessageWithFragment = messages.findLast(
-            (message)=>{message.role === "ASSISTANT" && !!message.fragment}
-
+        const lastAssistantMessage = messages.findLast(
+            (message)=> message.role ==="ASSISTANT"
         )
 
-        if (lastAssistantMessageWithFragment ){
-            setActiveFragment(lastAssistantMessageWithFragment.fragment)
+        if(lastAssistantMessage?.fragment &&
+            lastAssistantMessage.id !== lastAssistantMessageIDRef.current
+        ){
+            setActiveFragment(lastAssistantMessage.fragment)
+            lastAssistantMessageIDRef.current = lastAssistantMessage.id 
         }
     },[messages, setActiveFragment])
 

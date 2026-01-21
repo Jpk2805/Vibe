@@ -133,13 +133,13 @@ export const FileExplorer = ({ files }: FileExplorerProps) => {
 
   const handleCopy = useCallback (()=>{
     if(selectedFile){
-      navigator.clipboard.writeText(files[selectedFile])
+      navigator.clipboard.writeText(normalizedFiles[selectedFile])
       setCopied(true);
       setTimeout(() => {
         setCopied(false)
       }, 2000);
     }
-  },[selectedFile,files])
+  },[selectedFile,normalizedFiles])
 
   return (
     <ResizablePanelGroup direction="horizontal" className="h-full min-h-0">
