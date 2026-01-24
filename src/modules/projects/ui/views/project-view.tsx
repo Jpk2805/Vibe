@@ -12,12 +12,18 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { FileExplorer } from '@/components/file-explorer'
 import { UserControl } from '@/components/user-control'
+import { useAuth } from '@clerk/nextjs'
 
 interface Props {
     projectID: string
 }
 
 export const ProjectView = ({projectID} : Props) => {
+
+    const { has } = useAuth()
+    const hasProAccess = has?.({
+        plan:"Pro"
+    })
 
     const [activeFragment, setActiveFragment] = useState<Fragment | null>(null);
 
@@ -68,12 +74,12 @@ export const ProjectView = ({projectID} : Props) => {
                     </TabsList>
 
                     <div className="ml-auto">
-                        <Button asChild size="sm" variant={"tertiary"}>
+                        {!hasProAccess&& (<Button asChild size="sm" variant={"tertiary"}>
                         <Link href="/pricing">
                             <CrownIcon className="size-4 mr-1" />
                             Upgrade
                         </Link>
-                        </Button>
+                        </Button>)}
                         <UserControl/>
                     </div>
                     </div>
