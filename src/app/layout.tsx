@@ -29,7 +29,13 @@ export default function RootLayout({
   return (
         
     <html lang="en" suppressHydrationWarning>
-      <ClerkProvider>
+      <ClerkProvider
+        appearance={{
+          variables:{
+            colorPrimary:"#C96342"
+          }
+        }}
+      >
         <TRPCReactProvider>
           <body
               className={`${geistSans.variable} ${geistMono.variable} antialiased`}

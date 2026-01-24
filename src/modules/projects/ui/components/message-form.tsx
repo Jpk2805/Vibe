@@ -5,12 +5,14 @@ import {useForm } from "react-hook-form"
 import {zodResolver} from "@hookform/resolvers/zod"
 import TextareaAutosize from "react-textarea-autosize"
 import { ArrowUpIcon, Loader2Icon } from "lucide-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Form, FormField } from "@/components/ui/form"
+import { Usage } from "./usage";
+import { useRouter } from "next/router";
 
 interface Props {
     projectID: string;
@@ -25,7 +27,9 @@ export const MessageForm = ({projectID} : Props) => {
     
     const queryClient = useQueryClient();
     const trpc = useTRPC()
+    const router = useRouter()
     
+    const {data: usage} = useQuery(trpc.usage.status.queryOptions())
     
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -33,8 +37,6 @@ export const MessageForm = ({projectID} : Props) => {
             content: "",
         }
     })
-    
-    
     
     const createMessage = useMutation(trpc.messages.create.mutationOptions({
         onSuccess: ()=>{
@@ -44,11 +46,16 @@ export const MessageForm = ({projectID} : Props) => {
                     projectID
                 })
             )
-            //TODO: Invalidate usage status
+            queryClient.invalidateQueries(
+                trpc.usage.status.queryOptions()
+            )
         },
         onError: (err)=>{
-            //TODO: redirect to pricing page if specific error. 
             toast.error(err.message)
+
+            if (err.data?.code === "TOO_MANY_REQUESTS"){
+                router.push("/pricing")
+            }
         }
     }
     ))
@@ -63,10 +70,17 @@ export const MessageForm = ({projectID} : Props) => {
     const isPending = createMessage.isPending;
     const isButtonDisable = isPending || !form.formState.isValid
     const [isFocused, setIsFocused] = useState(false);
-    const showUsage = false;
+    
+    const showUsage = !!usage;
 
     return (
         <Form {...form}>
+            {showUsage && (
+                <Usage 
+                points= {usage.remainingPoints}
+                msBeforeNext={usage.msBeforeNext}
+                />
+            )}
             <form action="" onSubmit={form.handleSubmit(onSubmit)} 
             className={
                 cn(
