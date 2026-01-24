@@ -13,12 +13,12 @@ export const Usage = ({ points, msBeforeNext}: Props)=>{
 
     const { has } = useAuth()
     const hasProAccess = has?.({
-        plan:"Pro"
+        plan:"pro"
     })
 
     return (
         <div className="rounded-t-xl bg-background border border-b-0 p-2.5">
-            <div className="flex items-center gep-x-2">
+            <div className="flex items-center gap-x-2">
                 <div>
                     <p className="text-sm">
                         {points} {hasProAccess?"" :"free"} credits remaining
