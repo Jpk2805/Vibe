@@ -28,11 +28,9 @@ export const MessagesContianer = ({
         projectID,
     },
     {
-        //TODO temp solution (not effective to fetch after each 5 secs)
-        refetchInterval:5000,
+        refetchInterval:2000,
     }
     ))
-    // TODO : implement fragment selection 
     useEffect(()=>{
         const lastAssistantMessage = messages.findLast(
             (message)=> message.role ==="ASSISTANT"
