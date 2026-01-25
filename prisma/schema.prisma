@@ -60,8 +60,10 @@ model Fragment {
   updatedAt DateTime @updatedAt
 }
 
-model Usage {
-  key String @id
-  Points Int
-  expire DateTime?
+model RateLimit {
+  key     String   @id
+  points  Int
+  expire  DateTime
+
+  @@map("rate_limit")
 }

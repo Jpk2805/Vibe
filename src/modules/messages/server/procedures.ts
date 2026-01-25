@@ -85,7 +85,6 @@ export const messagesRouter = createTRPCRouter({
             });
         } catch (err) {
             console.error("Inngest failed", err);
-            // DO NOT throw — message is already created
         }
 
         return newMessage; 
