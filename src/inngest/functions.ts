@@ -3,7 +3,9 @@ import {
   openai,
   createTool,
   createNetwork,
-  Tool
+  Tool,
+  Message,
+  createState
 } from "@inngest/agent-kit";
 
 import { Sandbox } from "@e2b/code-interpreter";
@@ -11,8 +13,9 @@ import { inngest } from "./client";
 import { getSandbox, lastMessage, runNextjsDevServer } from "./utils";
 import { stdout } from "node:process";
 import { z } from "zod";
-import { PROMPT } from "@/prompt";
+import { FRAGMENT_TITLE_PROMPT, PROMPT, RESPONSE_PROMPT } from "@/prompt";
 import prisma from "@/lib/db";
+import path from "path";
 
 interface AgentState {
   summary: string;
@@ -29,13 +32,48 @@ export const codeAgentFunction = inngest.createFunction(
       return sandbox.sandboxId;
     });
 
+
+    const previousMessages = await step.run("get-previous-messages", async () => {
+      const formattedMessages: Message[] = []
+
+      const messages = await prisma.message.findMany({
+        where: {
+          projectID : event.data.projectID
+        },
+        orderBy:{
+          createdAt: 'desc'
+        }
+      })
+
+      for (const message of messages){
+        formattedMessages.push({
+          type: "text",
+          role: message.role === "USER" ? 'user' : 'assistant',
+          content: message.content,
+        })
+      }
+
+      return formattedMessages
+    })
+
+    const state = createState<AgentState>(
+      {
+        summary:'',
+        files:{},
+      },
+      {
+        messages: previousMessages,
+
+      }
+    )
+
     const codeAgent = createAgent<AgentState>({
       name: "Code Agent",
       description: "An expert coding agent",
       system: PROMPT,
       model: openai({
-        model: "gpt-4.1-mini",
-        defaultParameters: { temperature: 0.2 },
+        model: 'gpt-4.1',
+        // defaultParameters: { temperature: 0.2 },
       }),
       tools: [
         createTool({
@@ -113,28 +151,59 @@ export const codeAgentFunction = inngest.createFunction(
         }),
         createTool({
           name: "readFile",
-          description: "Read a file from the sandbox",
+          description: "Read files from the sandbox (directories are expanded)",
           parameters: z.object({
             files: z.array(z.string()),
           }),
-          handler: async({files},{step} ) =>{
-
+          handler: async ({ files }, { step }) => {
             return await step?.run("readFile", async () => {
-              try {
-                const sandbox = await getSandbox(sandboxId);
-                const contents= []
-                for (const file of files){
-                  const content = await sandbox.files.read(file);
-                  contents.push({path: file, content});
+              const sandbox = await getSandbox(sandboxId);
+              const WORKSPACE_ROOT = "/home/user";
+        
+              const results: { path: string; content: string }[] = [];
+        
+              async function readPath(inputPath: string) {
+                // Normalize agent paths
+                const rel = inputPath
+                  .replace(/^\/root\/?/, "")
+                  .replace(/^\/app\/?/, "app/")
+                  .replace(/^\/+/, "");
+        
+                const abs = path.posix.join(WORKSPACE_ROOT, rel);
+        
+                // 1️⃣ Try reading as file
+                try {
+                  const content = await sandbox.files.read(abs);
+                  results.push({ path: rel, content });
+                  return;
+                } catch {
+                  // Not a file → probably a directory
                 }
-                return contents;
+        
+                // 2️⃣ Try listing as directory
+                // Try listing as directory
+                let entries;
+                try {
+                  entries = await sandbox.files.list(abs);
+                } catch {
+                  return;
+                }
 
-              } catch (error) {
-                throw new Error(`Error reading files: ${error}`);
+                for (const entry of entries) {
+                  await readPath(path.posix.join(rel, entry.name));
+                }
+
               }
+        
+              for (const file of files) {
+                await readPath(file);
+              }
+        
+              return results;
             });
-          }
-        }),
+          },
+        })
+        
       ],
       lifecycle: {
         onResponse: async ({result, network}) => {
@@ -154,6 +223,7 @@ export const codeAgentFunction = inngest.createFunction(
       name: "coding-agent-network",
       agents: [codeAgent],
       maxIter: 15,
+      defaultState:state,
       router: async ({ network }) => {
         const summary = network.state.data.summary;
         if (summary){
@@ -163,7 +233,52 @@ export const codeAgentFunction = inngest.createFunction(
       },
     })
 
-    const result = await network.run (event.data.value);
+    const result = await network.run (event.data.value, {state});
+
+    const fragmentTitleGenerator = createAgent({
+      name:"fragment-title-generatir",
+      description:"A fragment Title generator",
+      system:FRAGMENT_TITLE_PROMPT,
+      model: openai({
+        model:"gpt-4o-mini"
+      }) 
+    })
+
+    const responseGenerator = createAgent({
+      name:"response-generatir",
+      description:"A response generator",
+      system:RESPONSE_PROMPT,
+      model: openai({
+        model:"gpt-4o-mini"
+      }) 
+    })
+
+    const {output: fragmentTitle} = await fragmentTitleGenerator.run(result.state.data.summary)
+    const {output: response} = await responseGenerator.run(result.state.data.summary)
+
+    const generateFragmentTitle = () =>{
+      if(fragmentTitle[0].type !== "text"){
+        return "Fragment"
+      }
+
+      if(Array.isArray(fragmentTitle[0].content)){
+        return fragmentTitle[0].content.map((txt)=> txt).join('')
+      }else{
+        return fragmentTitle[0].content
+      }
+    }
+    
+    const generateResponse = () =>{
+      if(response[0].type !== "text"){
+        return "Response"
+      }
+
+      if(Array.isArray(response[0].content)){
+        return response[0].content.map((txt)=> txt).join('')
+      }else{
+        return response[0].content
+      }
+    }
 
     const isError = 
     !result.state.data.summary ||
@@ -205,13 +320,13 @@ export const codeAgentFunction = inngest.createFunction(
       await prisma.message.create({
         data: {
           projectID: event.data.projectID,
-          content: result.state.data.summary,
+          content: generateResponse(),
           role: "ASSISTANT",
           type: "RESULT",
           fragment: {
             create: {
               sandboxUrl: sandboxUrl,
-              title: "Fragment",
+              title: generateFragmentTitle(),
               files: result.state.data.files,
             }
             
@@ -224,7 +339,7 @@ export const codeAgentFunction = inngest.createFunction(
 
     return {
       url: sandboxUrl,
-      title: "Fragment",
+      title: fragmentTitle[0].type === "text" ? fragmentTitle[0].content : "Fragment",
       files: result.state.data.files,
       summary: result.state.data.summary,
     };

@@ -12,7 +12,8 @@ import { useTRPC } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Form, FormField } from "@/components/ui/form"
 import { Usage } from "./usage";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
+
 
 interface Props {
     projectID: string;
