@@ -13,6 +13,24 @@ export async function getSandbox(sandboxId: string) {
 }
 
 
+export async function cleanupSandboxes() {
+  try {
+    const paginator = await Sandbox.list();
+    const sandboxes = await paginator.nextItems();
+    if (sandboxes.length >= 15) {
+      const sorted = [...sandboxes].sort((a, b) => 
+        new Date(a.startedAt || 0).getTime() - new Date(b.startedAt || 0).getTime()
+      );
+      // Keep only the 10 newest sandboxes
+      const toKill = sorted.slice(0, sorted.length - 10);
+      console.log(`Cleaning up ${toKill.length} old sandboxes to stay under limit...`);
+      await Promise.all(toKill.map(sb => Sandbox.kill(sb.sandboxId).catch(() => {})));
+    }
+  } catch (error) {
+    console.error("Failed to cleanup sandboxes", error);
+  }
+}
+
 /**
  * Starts a Next.js development server inside the provided Sandbox and returns the host reachable for the server port.
  *
@@ -40,8 +58,25 @@ export async function runNextjsDevServer(
     background: true,
   });
 
-  // Return immediately
-  return sandbox.getHost(port);
+  const url = sandbox.getHost(port);
+  const fullUrl = url.startsWith("http") ? url : `https://${url}`;
+
+  // Poll until it's ready (max 30 seconds wait)
+  const maxRetries = 15;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const response = await fetch(fullUrl);
+      if (response.ok || response.status === 404 || response.status === 200) {
+        // Dev server is up and listening
+        break;
+      }
+    } catch (e) {
+      // Connection refused, wait and retry
+    }
+    await new Promise(r => setTimeout(r, 2000));
+  }
+
+  return url;
 }
 
 

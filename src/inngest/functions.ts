@@ -10,7 +10,7 @@ import {
 
 import { Sandbox } from "@e2b/code-interpreter";
 import { inngest } from "./client";
-import { getSandbox, lastMessage, runNextjsDevServer } from "./utils";
+import { getSandbox, lastMessage, runNextjsDevServer, cleanupSandboxes } from "./utils";
 import { stdout } from "node:process";
 import { z } from "zod";
 import { FRAGMENT_TITLE_PROMPT, PROMPT, RESPONSE_PROMPT } from "@/prompt";
@@ -28,6 +28,7 @@ export const codeAgentFunction = inngest.createFunction(
   async ({ event, step }) => {
 
     const sandboxId = await step.run("create sandbox", async () => {
+      await cleanupSandboxes();
       const sandbox = await Sandbox.create("vibe-nextjs-v12");
       await sandbox.setTimeout(60000 * 30) // 30 Minutes
       return sandbox.sandboxId;
@@ -131,15 +132,17 @@ export const codeAgentFunction = inngest.createFunction(
               try {
                 const updatedFiles =network.state.data.files || {};
                 const sandbox = await getSandbox(sandboxId);
-                for (const file of files) {
-                  const resolvedPath = file.path.startsWith("/")
-                    ? file.path
-                    : `/home/user/app/${file.path.replace(/^app\//, "")}`;
+                await Promise.all(
+                  files.map(async (file) => {
+                    const resolvedPath = file.path.startsWith("/")
+                      ? file.path
+                      : `/home/user/app/${file.path.replace(/^app\//, "")}`;
 
-                  await sandbox.files.write(resolvedPath, file.content);
-                  console.log("📝 Writing file:", resolvedPath);
-                  updatedFiles[resolvedPath] = file.content;
-                }
+                    await sandbox.files.write(resolvedPath, file.content);
+                    console.log("📝 Writing file:", resolvedPath);
+                    updatedFiles[resolvedPath] = file.content;
+                  })
+                );
 
                 return updatedFiles;
               } catch (error) {
@@ -256,8 +259,12 @@ export const codeAgentFunction = inngest.createFunction(
       }) 
     })
 
-    const {output: fragmentTitle} = await fragmentTitleGenerator.run(result.state.data.summary)
-    const {output: response} = await responseGenerator.run(result.state.data.summary)
+    const [fragmentTitleResult, responseResult] = await Promise.all([
+      fragmentTitleGenerator.run(result.state.data.summary),
+      responseGenerator.run(result.state.data.summary)
+    ]);
+    const fragmentTitle = fragmentTitleResult.output;
+    const response = responseResult.output;
 
     const generateFragmentTitle = () =>{
       if(fragmentTitle[0].type !== "text"){

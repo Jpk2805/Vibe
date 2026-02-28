@@ -104,8 +104,9 @@ export const projectsRouter = createTRPCRouter({
         }
 
         const { Sandbox } = await import("@e2b/code-interpreter");
-        const { runNextjsDevServer } = await import("@/inngest/utils");
+        const { runNextjsDevServer, cleanupSandboxes } = await import("@/inngest/utils");
 
+        await cleanupSandboxes();
         const sandbox = await Sandbox.create("vibe-nextjs-v12");
         await sandbox.setTimeout(60000 * 30); // 30 Minutes
 
