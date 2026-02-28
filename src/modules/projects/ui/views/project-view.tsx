@@ -13,6 +13,7 @@ import Link from 'next/link'
 import { FileExplorer } from '@/components/file-explorer'
 import { UserControl } from '@/components/user-control'
 import { useAuth } from '@clerk/nextjs'
+import { CodeGenerationLoader } from '../components/code-generation-loader'
 
 interface Props {
     projectID: string
@@ -26,7 +27,7 @@ export const ProjectView = ({projectID} : Props) => {
     })
 
     const [activeFragment, setActiveFragment] = useState<Fragment | null>(null);
-
+    const [isGenerating, setIsGenerating] = useState<boolean>(false);
     const [tabState, setTabState] = useState<"preview" |"code"> ("preview")
 
   return (
@@ -44,6 +45,7 @@ export const ProjectView = ({projectID} : Props) => {
                         projectID={projectID}
                         activeFragment = {activeFragment}
                         setActiveFragment = {setActiveFragment}
+                        setIsGenerating = {setIsGenerating}
                     />
                 </Suspense>
             </ResizablePanel>
@@ -83,12 +85,19 @@ export const ProjectView = ({projectID} : Props) => {
                         <UserControl/>
                     </div>
                     </div>
+                    
                     <TabsContent
                     value="preview"
                     className="flex-1 min-h-0 overflow-hidden"
                     >
-                    {!!activeFragment && (
+                    {isGenerating ? (
+                        <CodeGenerationLoader />
+                    ) : !!activeFragment ? (
                         <FragmentWeb data={activeFragment} />
+                    ) : (
+                        <div className="flex h-full items-center justify-center text-muted-foreground">
+                            Send a prompt to generate a preview.
+                        </div>
                     )}
                     </TabsContent>
 
@@ -96,12 +105,18 @@ export const ProjectView = ({projectID} : Props) => {
                     value="code"
                     className="flex-1 min-h-0 overflow-hidden"
                     >
-                    {!!activeFragment?.files && (
+                    {isGenerating ? (
+                        <CodeGenerationLoader />
+                    ) : !!activeFragment?.files ? (
                         <FileExplorer
                         files={activeFragment.files as {
                             [path: string]: string;
                         }}
                         />
+                    ) : (
+                        <div className="flex h-full items-center justify-center text-muted-foreground">
+                            Code files will appear here after generation.
+                        </div>
                     )}
                     </TabsContent>
                 </Tabs>

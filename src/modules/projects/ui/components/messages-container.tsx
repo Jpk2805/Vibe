@@ -10,7 +10,7 @@ interface Props {
     projectID: string;
     activeFragment: Fragment | null;
     setActiveFragment: (fragment: Fragment | null) => void;
-
+    setIsGenerating: (isGenerating: boolean) => void;
 }
 
 
@@ -18,7 +18,7 @@ export const MessagesContianer = ({
         projectID,
         activeFragment,
         setActiveFragment,
-    
+        setIsGenerating
     }: Props)=>{
     const bottomRef = useRef<HTMLDivElement>(null)
     const trpc = useTRPC()
@@ -50,6 +50,11 @@ export const MessagesContianer = ({
 
     const lastMessage = messages[messages.length-1]
     const isLastMessageUser = lastMessage?.role === "USER"
+    
+    useEffect(() => {
+        setIsGenerating(isLastMessageUser);
+    }, [isLastMessageUser, setIsGenerating]);
+
     return (
         <div className="flex flex-col flex-1 min-h-0">
             <div className="flex-1 min-h-0 overflow-y-auto">
