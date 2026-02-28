@@ -65,13 +65,15 @@ export const projectsRouter = createTRPCRouter({
             data: {
                 userId: ctx.auth.userId,
                 name: generateSlug(2, { format: "kebab" }),
-                messages: {
-                    create: {
-                        content: input.content,
-                        role: "USER",
-                        type: "RESULT",
-                    }
-                }
+            }
+        });
+
+        await prisma.message.create({
+            data: {
+                projectID: createdProject.id,
+                content: input.content,
+                role: "USER",
+                type: "RESULT",
             }
         });
 
@@ -85,6 +87,49 @@ export const projectsRouter = createTRPCRouter({
         });
 
         return createdProject; 
-    })
+    }),
     
+    restore: protectedProcedure
+    .input(z.object({
+        fragmentId: z.string().min(1, { message: "Fragment ID is required" }),
+    }))
+    .mutation(async ({ input, ctx }) => {
+        const fragment = await prisma.fragment.findUnique({
+            where: { id: input.fragmentId },
+            include: { message: { include: { project: true } } }
+        });
+
+        if (!fragment || fragment.message.project.userId !== ctx.auth.userId) {
+            throw new TRPCError({ code: "NOT_FOUND", message: "Fragment not found" });
+        }
+
+        const { Sandbox } = await import("@e2b/code-interpreter");
+        const { runNextjsDevServer } = await import("@/inngest/utils");
+
+        const sandbox = await Sandbox.create("vibe-nextjs-v12");
+        await sandbox.setTimeout(60000 * 30); // 30 Minutes
+
+        const files = fragment.files as Record<string, string>;
+        if (files) {
+            for (const [filePath, content] of Object.entries(files)) {
+                const resolvedPath = filePath.startsWith("/")
+                ? filePath
+                : `/home/user/app/${filePath.replace(/^app\//, "")}`;
+
+                await sandbox.files.write(resolvedPath, content);
+            }
+        }
+
+        const sandboxUrl = await runNextjsDevServer(sandbox, {
+            cwd: "/home/user",
+            port: 3000,
+        });
+
+        await prisma.fragment.update({
+            where: { id: fragment.id },
+            data: { sandboxUrl }
+        });
+
+        return { sandboxUrl };
+    }),
 });

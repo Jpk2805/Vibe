@@ -320,21 +320,22 @@ export const codeAgentFunction = inngest.createFunction(
     });
 
     await step.run("save-results", async () => {
-      await prisma.message.create({
+      const createdMessage = await prisma.message.create({
         data: {
           projectID: event.data.projectID,
           content: generateResponse(),
           role: "ASSISTANT",
           type: "RESULT",
-          fragment: {
-            create: {
-              sandboxUrl: sandboxUrl,
-              title: generateFragmentTitle(),
-              files: result.state.data.files,
-            }
-            
-          }
         },
+      });
+      
+      await prisma.fragment.create({
+          data: {
+            messageID: createdMessage.id,
+            sandboxUrl: sandboxUrl,
+            title: generateFragmentTitle(),
+            files: result.state.data.files ?? {},
+          }
       });
     });
 

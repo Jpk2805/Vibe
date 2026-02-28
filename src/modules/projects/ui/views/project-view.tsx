@@ -73,7 +73,7 @@ export const ProjectView = ({projectID} : Props) => {
                         </TabsTrigger>
                     </TabsList>
 
-                    <div className="ml-auto">
+                    <div className="ml-auto flex items-center gap-2">
                         {!hasProAccess&& (<Button asChild size="sm" variant={"tertiary"}>
                         <Link href="/pricing">
                             <CrownIcon className="size-4 mr-1" />
