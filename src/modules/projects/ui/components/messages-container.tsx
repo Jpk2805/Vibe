@@ -49,11 +49,12 @@ export const MessagesContianer = ({
     },[messages.length])
 
     const lastMessage = messages[messages.length-1]
-    const isLastMessageUser = lastMessage?.role === "USER"
+    const isGeneratingActive = lastMessage?.role === "USER" || 
+        (lastMessage?.role === "ASSISTANT" && lastMessage?.fragment && !lastMessage.fragment.sandboxUrl);
     
     useEffect(() => {
-        setIsGenerating(isLastMessageUser);
-    }, [isLastMessageUser, setIsGenerating]);
+        setIsGenerating(!!isGeneratingActive);
+    }, [isGeneratingActive, setIsGenerating]);
 
     return (
         <div className="flex flex-col flex-1 min-h-0">
@@ -73,7 +74,7 @@ export const MessagesContianer = ({
                         
                         ))
                     }
-                    {isLastMessageUser && <MessageLoading/>}
+                    {!!isGeneratingActive && <MessageLoading/>}
                     <div ref={bottomRef} />
                 </div>
 

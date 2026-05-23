@@ -144,6 +144,13 @@ export const codeAgentFunction = inngest.createFunction(
                   })
                 );
 
+                if (event.data.fragmentId) {
+                  await prisma.fragment.update({
+                      where: { id: event.data.fragmentId as string },
+                      data: { files: updatedFiles }
+                  });
+                }
+
                 return updatedFiles;
               } catch (error) {
                 console.error(`File creation/update failed: ${error}`);
@@ -242,7 +249,7 @@ export const codeAgentFunction = inngest.createFunction(
     const result = await network.run (event.data.value, {state});
 
     const fragmentTitleGenerator = createAgent({
-      name:"fragment-title-generatir",
+      name:"fragment-title-generator",
       description:"A fragment Title generator",
       system:FRAGMENT_TITLE_PROMPT,
       model: openai({
@@ -251,7 +258,7 @@ export const codeAgentFunction = inngest.createFunction(
     })
 
     const responseGenerator = createAgent({
-      name:"response-generatir",
+      name:"response-generator",
       description:"A response generator",
       system:RESPONSE_PROMPT,
       model: openai({
@@ -299,14 +306,24 @@ export const codeAgentFunction = inngest.createFunction(
     }
     await step.run("save-result", async () => {
       if(isError){
-        return await prisma.message.create({
-          data: {
-            projectID: event.data.projectID,
-            content: "The code agent failed to complete the task.",
-            role: "ASSISTANT",
-            type: "ERROR",
-          }
-        });
+        if (event.data.assistantMessageId) {
+          return await prisma.message.update({
+            where: { id: event.data.assistantMessageId as string },
+            data: {
+              content: "The code agent failed to complete the task.",
+              type: "ERROR",
+            }
+          });
+        } else {
+          return await prisma.message.create({
+            data: {
+              projectID: event.data.projectID as string,
+              content: "The code agent failed to complete the task.",
+              role: "ASSISTANT",
+              type: "ERROR",
+            }
+          });
+        }
       }
     });
 
@@ -327,23 +344,41 @@ export const codeAgentFunction = inngest.createFunction(
     });
 
     await step.run("save-results", async () => {
-      const createdMessage = await prisma.message.create({
-        data: {
-          projectID: event.data.projectID,
-          content: generateResponse(),
-          role: "ASSISTANT",
-          type: "RESULT",
-        },
-      });
-      
-      await prisma.fragment.create({
+      if (event.data.assistantMessageId && event.data.fragmentId) {
+        await prisma.message.update({
+          where: { id: event.data.assistantMessageId as string },
           data: {
-            messageID: createdMessage.id,
-            sandboxUrl: sandboxUrl,
-            title: generateFragmentTitle(),
-            files: result.state.data.files ?? {},
-          }
-      });
+            content: generateResponse(),
+          },
+        });
+        
+        await prisma.fragment.update({
+            where: { id: event.data.fragmentId as string },
+            data: {
+              sandboxUrl: sandboxUrl,
+              title: generateFragmentTitle(),
+              files: result.state.data.files ?? {},
+            }
+        });
+      } else {
+        const createdMessage = await prisma.message.create({
+          data: {
+            projectID: event.data.projectID as string,
+            content: generateResponse(),
+            role: "ASSISTANT",
+            type: "RESULT",
+          },
+        });
+        
+        await prisma.fragment.create({
+            data: {
+              messageID: createdMessage.id,
+              sandboxUrl: sandboxUrl,
+              title: generateFragmentTitle(),
+              files: result.state.data.files ?? {},
+            }
+        });
+      }
     });
 
     console.log("Sandbox URL:", sandboxUrl);

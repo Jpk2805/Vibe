@@ -74,6 +74,26 @@ export const messagesRouter = createTRPCRouter({
             },
         });
 
+        // Initialize empty assistant message for streaming
+        const newAssistantMessage = await prisma.message.create({
+            data: {
+                projectID: input.projectID,
+                content: "Generating...",
+                role: "ASSISTANT",
+                type: "RESULT",
+            },
+        });
+
+        // Initialize empty fragment for streaming
+        const newFragment = await prisma.fragment.create({
+            data: {
+                messageID: newAssistantMessage.id,
+                sandboxUrl: "",
+                title: "Generating...",
+                files: {},
+            }
+        });
+
         
         try {
             await inngest.send({
@@ -81,6 +101,8 @@ export const messagesRouter = createTRPCRouter({
             data: {
                 value: input.content,
                 projectID: input.projectID,
+                assistantMessageId: newAssistantMessage.id,
+                fragmentId: newFragment.id
             },
             });
         } catch (err) {

@@ -103,16 +103,22 @@ export const ProjectView = ({projectID} : Props) => {
 
                     <TabsContent
                     value="code"
-                    className="flex-1 min-h-0 overflow-hidden"
+                    className="flex-1 min-h-0 overflow-hidden flex flex-col"
                     >
-                    {isGenerating ? (
+                    {isGenerating && (!activeFragment?.files || Object.keys(activeFragment.files as Record<string, string>).length === 0) ? (
                         <CodeGenerationLoader />
                     ) : !!activeFragment?.files ? (
-                        <FileExplorer
-                        files={activeFragment.files as {
-                            [path: string]: string;
-                        }}
-                        />
+                        <div className="flex-1 flex flex-col min-h-0">
+                            {isGenerating && (
+                                <div className="p-2 bg-muted/50 border-b flex items-center gap-2 text-sm text-muted-foreground">
+                                    <div className="animate-spin size-4 border-2 border-primary border-t-transparent rounded-full" />
+                                    Generating files... 
+                                </div>
+                            )}
+                            <FileExplorer
+                                files={activeFragment.files as Record<string, string>}
+                            />
+                        </div>
                     ) : (
                         <div className="flex h-full items-center justify-center text-muted-foreground">
                             Code files will appear here after generation.
