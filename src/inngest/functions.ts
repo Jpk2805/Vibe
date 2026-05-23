@@ -11,7 +11,6 @@ import {
 import { Sandbox } from "@e2b/code-interpreter";
 import { inngest } from "./client";
 import { getSandbox, lastMessage, runNextjsDevServer, cleanupSandboxes } from "./utils";
-import { stdout } from "node:process";
 import { z } from "zod";
 import { FRAGMENT_TITLE_PROMPT, PROMPT, RESPONSE_PROMPT } from "@/prompt";
 import prisma from "@/lib/db";
@@ -23,8 +22,7 @@ interface AgentState {
 }
 
 export const codeAgentFunction = inngest.createFunction(
-  { id: "code-agent" },
-  { event: "code-agent/run" },
+  { id: "code-agent", triggers: [{ event: "code-agent/run" }] },
   async ({ event, step }) => {
 
     const sandboxId = await step.run("create sandbox", async () => {
@@ -93,11 +91,9 @@ export const codeAgentFunction = inngest.createFunction(
                 const sandbox = await getSandbox(sandboxId);
                 await sandbox.commands.run(command, {
                   onStdout: (data) => {
-                    stdout.write(data);
                     buffers.stdout += data;
                   },
                   onStderr: (data) => {
-                    stdout.write(data);
                     buffers.stderr += data;
                   }
 
@@ -139,7 +135,6 @@ export const codeAgentFunction = inngest.createFunction(
                       : `/home/user/app/${file.path.replace(/^app\//, "")}`;
 
                     await sandbox.files.write(resolvedPath, file.content);
-                    console.log("📝 Writing file:", resolvedPath);
                     updatedFiles[resolvedPath] = file.content;
                   })
                 );
@@ -297,15 +292,12 @@ export const codeAgentFunction = inngest.createFunction(
       }
     }
 
-    const isError = 
+    const isError =
     !result.state.data.summary ||
     Object.keys(result.state.data.files || {}).length === 0;
 
-    if (isError){
-      
-    }
-    await step.run("save-result", async () => {
-      if(isError){
+    if (isError) {
+      await step.run("save-result", async () => {
         if (event.data.assistantMessageId) {
           return await prisma.message.update({
             where: { id: event.data.assistantMessageId as string },
@@ -314,18 +306,18 @@ export const codeAgentFunction = inngest.createFunction(
               type: "ERROR",
             }
           });
-        } else {
-          return await prisma.message.create({
-            data: {
-              projectID: event.data.projectID as string,
-              content: "The code agent failed to complete the task.",
-              role: "ASSISTANT",
-              type: "ERROR",
-            }
-          });
         }
-      }
-    });
+        return await prisma.message.create({
+          data: {
+            projectID: event.data.projectID as string,
+            content: "The code agent failed to complete the task.",
+            role: "ASSISTANT",
+            type: "ERROR",
+          }
+        });
+      });
+      return { error: "Code agent failed to produce output." };
+    }
 
     const sandbox = await getSandbox(sandboxId);
 
@@ -381,11 +373,9 @@ export const codeAgentFunction = inngest.createFunction(
       }
     });
 
-    console.log("Sandbox URL:", sandboxUrl);
-
     return {
       url: sandboxUrl,
-      title: fragmentTitle[0].type === "text" ? fragmentTitle[0].content : "Fragment",
+      title: generateFragmentTitle(),
       files: result.state.data.files,
       summary: result.state.data.summary,
     };
